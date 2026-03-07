@@ -66,7 +66,10 @@ def parse_args() -> argparse.Namespace:
         "--carrier-hz",
         type=float,
         default=DEFAULT_CARRIER_HZ,
-        help=f"Haptic sine carrier in Hz (default: {DEFAULT_CARRIER_HZ})",
+        help=(
+            "Legacy option retained for compatibility; raw haptic envelopes are "
+            f"written directly (default: {DEFAULT_CARRIER_HZ})"
+        ),
     )
     parser.add_argument(
         "--quality",
@@ -306,6 +309,11 @@ def synthesize_haptic_track(
     if not pulses:
         return output
 
+    # Android haptic OGG tracks expect the last channel to contain a sampled
+    # haptic envelope, not an audible carrier waveform. Keep the CLI flag for
+    # backwards compatibility but write the pulse envelope directly.
+    _ = carrier_hz
+
     for pulse in pulses:
         start = max(0, int(pulse.time_ms * sample_rate / 1000))
         duration_samples = max(1, int(pulse.duration_ms * sample_rate / 1000))
@@ -322,8 +330,7 @@ def synthesize_haptic_track(
             else:
                 envelope = 1.0
 
-            phase = 2.0 * math.pi * carrier_hz * (local_index / sample_rate)
-            output[sample_index] += math.sin(phase) * pulse.intensity * envelope
+            output[sample_index] += pulse.intensity * envelope
 
     max_amplitude = max((abs(sample) for sample in output), default=0.0)
     if max_amplitude > 0.95:
