@@ -25,9 +25,13 @@ DEFAULT_MIN_ONSET_INTERVAL_MS = 50.0
 MIN_INTERVAL_MS = 80
 MERGE_WINDOW_MS = 120
 MIN_INTENSITY = 0.08
+MIN_PULSE_INTENSITY = 0.15
 BASE_DURATION_MS = 40
 MAX_DURATION_MS = 100
 MIN_DURATION_MS = 20
+ONSET_BOOST = 0.35
+AMPLITUDE_COMPRESSION_EXPONENT = 0.6
+ENVELOPE_TIME_SECONDS = 0.005
 
 
 @dataclass(frozen=True)
@@ -242,7 +246,10 @@ def build_pulses(rms_values: list[float], onsets: list[int], sample_rate: int, h
 
     for onset_index in onsets:
         timestamp_ms = int(onset_index * hop_size * 1000 / sample_rate)
-        boost = min(1.0, rms_values[onset_index] + 0.35 if onset_index < len(rms_values) else 0.35)
+        boost = min(
+            1.0,
+            rms_values[onset_index] + ONSET_BOOST if onset_index < len(rms_values) else ONSET_BOOST,
+        )
         candidates.append((timestamp_ms, boost))
 
     candidates.sort(key=lambda item: item[0])
@@ -270,14 +277,14 @@ def build_pulses(rms_values: list[float], onsets: list[int], sample_rate: int, h
         merged_time /= count
         merged_amp /= count
 
-        compressed_amp = max(0.0, min(1.0, merged_amp)) ** 0.6
+        compressed_amp = max(0.0, min(1.0, merged_amp)) ** AMPLITUDE_COMPRESSION_EXPONENT
         duration_ms = int(BASE_DURATION_MS + compressed_amp * (MAX_DURATION_MS - BASE_DURATION_MS))
         duration_ms = max(MIN_DURATION_MS, min(MAX_DURATION_MS, duration_ms))
 
         pulses.append(
             VibrationPulse(
                 time_ms=int(round(merged_time)),
-                intensity=max(0.15, min(1.0, compressed_amp)),
+                intensity=max(MIN_PULSE_INTENSITY, min(1.0, compressed_amp)),
                 duration_ms=duration_ms,
             )
         )
@@ -289,7 +296,6 @@ def build_pulses(rms_values: list[float], onsets: list[int], sample_rate: int, h
 
 
 def synthesize_haptic_track(
-    pulse_count: int,
     pulses: list[VibrationPulse],
     sample_rate: int,
     total_samples: int,
@@ -297,14 +303,14 @@ def synthesize_haptic_track(
 ) -> list[float]:
     output = [0.0] * total_samples
 
-    if pulse_count == 0:
+    if not pulses:
         return output
 
     for pulse in pulses:
         start = max(0, int(pulse.time_ms * sample_rate / 1000))
         duration_samples = max(1, int(pulse.duration_ms * sample_rate / 1000))
         end = min(total_samples, start + duration_samples)
-        attack = max(1, min(duration_samples // 4, int(sample_rate * 0.005)))
+        attack = max(1, min(duration_samples // 4, int(sample_rate * ENVELOPE_TIME_SECONDS)))
         release = attack
 
         for sample_index in range(start, end):
@@ -347,6 +353,8 @@ def create_android_haptic_ogg(
         str(haptic_wav),
         "-filter_complex",
         (
+            # Use a native Vorbis 3-channel layout (FL, FR, FC) and carry haptics in
+            # the third channel; Android discovers the haptic lane via ANDROID_HAPTIC=1.
             "[0:a][1:a]join=inputs=2:channel_layout=3.0:"
             "map=0.0-FL|0.1-FR|1.0-FC[aout]"
         ),
@@ -389,7 +397,6 @@ def main() -> int:
         )
         pulses = build_pulses(rms_values, onsets, sample_rate, DEFAULT_RMS_HOP)
         haptic_samples = synthesize_haptic_track(
-            pulse_count=len(pulses),
             pulses=pulses,
             sample_rate=sample_rate,
             total_samples=len(mono_samples),
