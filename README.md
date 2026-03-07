@@ -222,7 +222,7 @@ A step-by-step breakdown of the signal processing path:
 
   ---
 
- ## 📋 Requirements
+  ## 📋 Requirements
   
   - Android SDK: 24+
   - Kotlin: 2.0.0+
@@ -230,9 +230,43 @@ A step-by-step breakdown of the signal processing path:
   - Coroutines: for async processing
   - Media3 Exoplayer : 1.7.1+ (K2 compatibility)
 
- ### Permissions
- 
+  ### Linux haptic OGG generation
+
+  If you want to pre-generate an **Android-compatible OGG with embedded haptics** on Linux, use:
+
+  ```bash
+  python3 scripts/generate_haptic_ogg.py input.mp3 output.ogg
   ```
+
+  This standalone tool re-implements the current app pipeline outside Android:
+
+  - Decode the source audio with `ffmpeg`
+  - Down-mix to mono for analysis
+  - Apply the same 2nd-order Butterworth low-pass approach (~200 Hz)
+  - Compute RMS energy windows
+  - Detect transient/onset boosts
+  - Merge/compress pulses using the existing haptic post-processing rules
+  - Synthesize a dedicated haptic carrier track
+  - Mux stereo audio + 1 haptic channel into an OGG/Vorbis file with `ANDROID_HAPTIC=1`
+
+  Requirements for the Linux tool:
+
+  - `python3`
+  - `ffmpeg`
+
+  Optional tuning flags:
+
+  ```bash
+  python3 scripts/generate_haptic_ogg.py input.wav output.ogg \
+    --sample-rate 48000 \
+    --low-pass-cutoff 200 \
+    --carrier-hz 180 \
+    --quality 6
+  ```
+
+  ### Permissions
+  
+   ```
  <uses-permission android:name="android.permission.VIBRATE" />
  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
  <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
