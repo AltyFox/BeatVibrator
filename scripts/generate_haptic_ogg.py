@@ -354,7 +354,7 @@ def create_android_haptic_ogg(
             # Use a native Vorbis 3-channel layout (FL, FR, FC) and carry haptics in
             # the third channel; Android discovers the haptic lane via ANDROID_HAPTIC=1.
             "[0:a][1:a]join=inputs=2:channel_layout=3.0:"
-            "map=0.0-FL|0.1-FR|1.0-FC[aout]"
+            "map=0.0|0.1|1.0[aout]"
         ),
         "-map",
         "[aout]",
