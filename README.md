@@ -246,7 +246,7 @@ A step-by-step breakdown of the signal processing path:
   - Compute RMS energy windows
   - Detect transient/onset boosts
   - Merge/compress pulses using the existing haptic post-processing rules
-  - Synthesize a dedicated haptic carrier track
+  - Synthesize a dedicated haptic envelope track
   - Mux stereo audio + 1 haptic channel into an OGG/Vorbis file with `ANDROID_HAPTIC=1`
 
   Requirements for the Linux tool:
@@ -260,7 +260,6 @@ A step-by-step breakdown of the signal processing path:
   python3 scripts/generate_haptic_ogg.py input.wav output.ogg \
     --sample-rate 48000 \
     --low-pass-cutoff 200 \
-    --carrier-hz 180 \
     --quality 6
   ```
 

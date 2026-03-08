@@ -66,7 +66,7 @@ def parse_args() -> argparse.Namespace:
         "--carrier-hz",
         type=float,
         default=DEFAULT_CARRIER_HZ,
-        help=f"Haptic sine carrier in Hz (default: {DEFAULT_CARRIER_HZ})",
+        help="Legacy compatibility option; ignored because raw haptic envelopes are written directly.",
     )
     parser.add_argument(
         "--quality",
@@ -299,7 +299,6 @@ def synthesize_haptic_track(
     pulses: list[VibrationPulse],
     sample_rate: int,
     total_samples: int,
-    carrier_hz: float,
 ) -> list[float]:
     output = [0.0] * total_samples
 
@@ -322,8 +321,7 @@ def synthesize_haptic_track(
             else:
                 envelope = 1.0
 
-            phase = 2.0 * math.pi * carrier_hz * (local_index / sample_rate)
-            output[sample_index] += math.sin(phase) * pulse.intensity * envelope
+            output[sample_index] += pulse.intensity * envelope
 
     max_amplitude = max((abs(sample) for sample in output), default=0.0)
     if max_amplitude > 0.95:
@@ -377,6 +375,12 @@ def main() -> int:
     if not args.input.exists():
         raise SystemExit(f"Input file does not exist: {args.input}")
 
+    if "--carrier-hz" in sys.argv:
+        print(
+            "Warning: --carrier-hz is ignored; the haptic track is now written as a raw envelope.",
+            file=sys.stderr,
+        )
+
     with tempfile.TemporaryDirectory(prefix="beatvibrator-haptics-") as temp_dir_name:
         temp_dir = Path(temp_dir_name)
         stereo_wav = temp_dir / "audio_stereo.wav"
@@ -400,7 +404,6 @@ def main() -> int:
             pulses=pulses,
             sample_rate=sample_rate,
             total_samples=len(mono_samples),
-            carrier_hz=args.carrier_hz,
         )
 
         write_wav_float_samples(haptic_wav, sample_rate, haptic_samples)
@@ -408,7 +411,7 @@ def main() -> int:
 
         print(
             f"Generated {args.output} with {len(pulses)} pulses "
-            f"at {sample_rate} Hz (carrier {args.carrier_hz:.1f} Hz)."
+            f"at {sample_rate} Hz."
         )
 
         if args.keep_temp:
