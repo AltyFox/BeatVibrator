@@ -375,6 +375,12 @@ def main() -> int:
     if not args.input.exists():
         raise SystemExit(f"Input file does not exist: {args.input}")
 
+    if "--carrier-hz" in sys.argv:
+        print(
+            "Warning: --carrier-hz is ignored; the haptic track is now written as a raw envelope.",
+            file=sys.stderr,
+        )
+
     with tempfile.TemporaryDirectory(prefix="beatvibrator-haptics-") as temp_dir_name:
         temp_dir = Path(temp_dir_name)
         stereo_wav = temp_dir / "audio_stereo.wav"
@@ -405,7 +411,7 @@ def main() -> int:
 
         print(
             f"Generated {args.output} with {len(pulses)} pulses "
-            f"at {sample_rate} Hz (carrier {args.carrier_hz:.1f} Hz)."
+            f"at {sample_rate} Hz."
         )
 
         if args.keep_temp:
